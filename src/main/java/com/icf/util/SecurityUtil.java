@@ -1,0 +1,169 @@
+package com.icf.util;
+
+import java.io.UnsupportedEncodingException;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.security.spec.AlgorithmParameterSpec;
+import java.security.spec.KeySpec;
+import java.util.UUID;
+
+import javax.crypto.Cipher;
+import javax.crypto.SecretKey;
+import javax.crypto.SecretKeyFactory;
+import javax.crypto.spec.PBEKeySpec;
+import javax.crypto.spec.PBEParameterSpec;
+
+import sun.misc.BASE64Decoder;
+import sun.misc.BASE64Encoder;
+
+/**
+ * Security utility class.
+ * 
+ * @author samavish
+ *
+ */
+public class SecurityUtil {
+	
+	  // some random salt
+	  private static final byte[]	SALT			= { (byte) 0x21, (byte) 0x21, (byte) 0xF0, (byte) 0x55, (byte) 0xC3, (byte) 0x9F, (byte) 0x5A, (byte) 0x75};
+
+	  private final static int	ITERATION_COUNT	= 1000;
+	  
+	  private static final String ALGORITHM_NAME = "SHA-256";
+	
+	/**
+	 * Encrypt the text.
+	 * 
+	 * @param text
+	 * @param salt
+	 * @return
+	 * @throws NoSuchAlgorithmException 
+	 * @throws UnsupportedEncodingException 
+	 */
+	public static String encrypt(String text, String salt) {
+	    String encryptPassword = null;
+	    try {
+			MessageDigest md = MessageDigest.getInstance(ALGORITHM_NAME);
+			md.reset();
+			md.update(salt.getBytes());
+			
+			byte[] btPass = md.digest(text.getBytes("UTF-8"));
+			for (int i=0; i <= ITERATION_COUNT; i++) {
+				md.reset();
+				btPass = md.digest(btPass);
+			}
+
+			BASE64Encoder ben = new BASE64Encoder();
+			encryptPassword = ben.encode(btPass);
+		} catch (NoSuchAlgorithmException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} catch (UnsupportedEncodingException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+	    return encryptPassword;
+	}	
+	
+	/**
+	 * Generate random salt.
+	 * 
+	 * @param saltpassword
+	 * @return random salt string.
+	 * @throws UnsupportedEncodingException 
+	 * @throws NoSuchAlgorithmException 
+	 */
+	public static String generateSalt(String saltpassword)  {
+		String salt = UUID.randomUUID().toString();
+		String encryptedSalt = encrypt(salt, saltpassword);
+		return encryptedSalt;
+	}
+	
+	
+	public static String encryptURL(String input, int iterationCount)
+	{
+		if (input == null)
+		{
+			throw new IllegalArgumentException();
+		}
+		try
+		{
+			if(iterationCount == 0) {
+				iterationCount = ITERATION_COUNT;
+			}
+			KeySpec keySpec = new PBEKeySpec(null, SALT, iterationCount);
+			AlgorithmParameterSpec paramSpec = new PBEParameterSpec(SALT, iterationCount);
+
+			SecretKey key = SecretKeyFactory.getInstance("PBEWithMD5AndTripleDES").generateSecret(keySpec);
+
+			Cipher ecipher = Cipher.getInstance(key.getAlgorithm());
+			ecipher.init(Cipher.ENCRYPT_MODE, key, paramSpec);
+
+			byte[] enc = ecipher.doFinal(input.getBytes());
+
+			BASE64Encoder encoder = new BASE64Encoder();
+			String res = new String(encoder.encode(enc));
+			// escapes for url
+			res = res.replace('+', '-').replace('/', '_').replace("%", "%25").replace("\n", "%0A");
+
+			return res;
+
+		}
+		catch (Exception e)
+		{
+		}
+
+		return "";
+
+	}
+
+	public static String decryptURL(String token, int iterationCount)
+	{
+		if (token == null)
+		{
+			return null;
+		}
+		try
+		{
+			if(iterationCount == 0) {
+				iterationCount = ITERATION_COUNT;
+			}
+			String input = token.replace("%0A", "\n").replace("%25", "%").replace('_', '/').replace('-', '+');
+			
+			BASE64Decoder decoder = new BASE64Decoder();
+			byte[] dec = decoder.decodeBuffer(input);
+
+			KeySpec keySpec = new PBEKeySpec(null, SALT, iterationCount);
+			AlgorithmParameterSpec paramSpec = new PBEParameterSpec(SALT, iterationCount);
+
+			SecretKey key = SecretKeyFactory.getInstance("PBEWithMD5AndTripleDES").generateSecret(keySpec);
+
+			Cipher dcipher = Cipher.getInstance(key.getAlgorithm());
+			dcipher.init(Cipher.DECRYPT_MODE, key, paramSpec);
+
+			byte[] decoded = dcipher.doFinal(dec);
+
+			String result = new String(decoded);
+			return result;
+
+		}
+		catch (Exception e)
+		{
+      // use logger in production code
+			e.printStackTrace();
+		}
+
+		return null;
+	}
+
+	public static void main(String args[]) {
+		//String name = "vikas";
+		//for(int i = 0; i < 10; i ++) {
+			//System.out.println("encryptURL ::"+encryptURL(name));
+			//System.out.println("encryptURL ::"+decryptURL("Dw54V_fc91k7HtJPJnLw5uiVWJtdogqJYNG4FZHZQjFnfTHxEL_j3g7e1Ybkay5G", 0));
+		//}
+		
+		
+	}
+
+}

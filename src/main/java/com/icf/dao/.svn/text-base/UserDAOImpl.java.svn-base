@@ -1,0 +1,227 @@
+package com.icf.dao;
+
+import java.util.Date;
+import java.util.List;
+
+import javax.faces.bean.ManagedBean;
+import javax.persistence.EntityTransaction;
+import javax.persistence.NoResultException;
+import javax.persistence.Query;
+
+import org.apache.log4j.Logger;
+
+import com.icf.exception.AuthenticationException;
+import com.icf.exception.UserAlreadyExistException;
+import com.icf.exception.UserNotExistException;
+import com.icf.model.User;
+import com.icf.model.UserAccountStatus;
+import com.icf.model.UserSecurityQuestion;
+import com.icf.util.AuthenticationUtil;
+import com.icf.util.EntityManagerUtil;
+import com.icf.util.SecurityUtil;
+
+/**
+ * User DAO  implementation to handle all the operations related to user.
+ */
+@ManagedBean
+public class UserDAOImpl extends BaseDAO implements UserDAO {
+	
+	 /** Logger for logging. */
+	private Logger logger = Logger.getLogger(UserDAOImpl.class);
+	
+	@Override
+	public User createUser(final User user) throws UserAlreadyExistException {
+		EntityTransaction transaction = EntityManagerUtil.getEntityManager().getTransaction();
+		
+		User existingUser  = findByName(user.getUsername());
+		
+		if(existingUser != null) {
+			throw new UserAlreadyExistException("User Already Exists.");
+		}
+		
+		transaction.begin();
+
+		user.setCreationDate(new Date());
+		user.setUpdationDate(new Date());
+		user.setLoginAttemptsCount(0);
+		String salt = SecurityUtil.generateSalt(user.getPassword());
+		user.setSalt(salt);
+		user.setPassword(SecurityUtil.encrypt(user.getPassword(), salt));
+		user.setSecurityAnswer(SecurityUtil.encrypt(user.getSecurityAnswer(), salt));
+
+		getEntityManager().persist(user);
+		transaction.commit();
+		
+		return user;
+	}
+
+	/**
+     * Find user by user id.
+     * 
+     * @param id of type integer.
+     * @return user object.
+     */
+	public User findById(final int id) {
+		return null;
+	}
+
+	@Override
+	public User update(final User user) throws UserNotExistException {
+		
+		User existingUser  = findByName(user.getUsername());
+		
+		if(existingUser == null) {
+			throw new UserNotExistException("User Not Exists.");
+		}
+		EntityTransaction transaction = EntityManagerUtil.getEntityManager().getTransaction();
+		transaction.begin();
+		getEntityManager().persist(user);
+		transaction.commit();
+		return user;
+	}
+	
+
+	@SuppressWarnings("unchecked")
+	@Override
+	public List<User> findAll() {
+		Query queryUsers = getEntityManager().createNamedQuery("findAllUsers");
+		List<User> users = (List<User>) queryUsers.getResultList();
+		return users;
+	}
+
+	@SuppressWarnings("unchecked")
+	@Override
+	public List<UserSecurityQuestion> getSecurityQuestions() {
+		Query queryUserSecurityQuestions = getEntityManager().createNamedQuery("findAllSecurityQuestions");
+		List<UserSecurityQuestion> userSecurityQuestion = queryUserSecurityQuestions.getResultList();
+		return userSecurityQuestion;
+	}
+	
+	@SuppressWarnings("unchecked")
+	@Override
+	public List<User> getUsers() {
+		Query queryUsers = getEntityManager().createNamedQuery("findAllUsers");
+		List<User> users = (List<User>) queryUsers.getResultList();
+		return users;
+	}
+	
+	@SuppressWarnings("unchecked")
+	@Override
+	public List<UserAccountStatus> getAccountStatus(String status) {
+		Query queryUsersByUserName = getEntityManager().createNamedQuery("findAccountStatusByStatusName");
+		queryUsersByUserName.setParameter("statusName", status);
+		List<UserAccountStatus> userAccountStatus = (List<UserAccountStatus>) queryUsersByUserName.getResultList();
+		return userAccountStatus;
+	}
+
+	@SuppressWarnings("unchecked")
+	@Override
+	public User validateMemorableAnswer(final String username, final String answer,
+			final UserSecurityQuestion userSecurityQuestion) throws AuthenticationException, UserNotExistException {
+		
+		User user = null;
+
+		boolean isValidAnswer = false;
+		try {
+			Query queryUsersByUserName = getEntityManager().createNamedQuery("findAllUsersByUserName");
+			queryUsersByUserName.setParameter("userName", username);
+			List<User> userList =  queryUsersByUserName.getResultList();
+			if(userList != null && userList.size() == 1){
+				user = userList.get(0);
+				String salt = user.getSalt();
+				String encryptedAnswer = SecurityUtil.encrypt(answer, salt);
+				isValidAnswer = user.getSecurityAnswer().equals(encryptedAnswer) && user.getUserSecurityQuestion().getId() == userSecurityQuestion.getId();
+				if(!isValidAnswer) {
+					throw new AuthenticationException("Invalid credentials supplied");
+				} else {
+					return user;
+				}
+			}
+		} catch (NoResultException exp){
+			// gracefully ignore.
+		}
+		return user;
+	}
+
+	@Override
+	public User authenticate(final String username, final String password) throws AuthenticationException {
+		User user = null;
+		boolean isValidLogin = false;
+		try {
+			user  = findByName(username);
+			String salt = user.getSalt();
+			String encryptedPassowrd = SecurityUtil.encrypt(password, salt);
+			isValidLogin = user.getPassword().equals(encryptedPassowrd);
+		} catch (NoResultException exp){
+			// gracefully ignore.
+		} catch (NullPointerException e) {
+			// gracefully ignore.	
+		}
+		
+		if(!isValidLogin) {
+			throw new AuthenticationException("Invalid credentials supplied");
+		} 
+
+		return user;
+		
+	}
+
+	@Override
+	public User findByName(final String username) {
+		User user  = null;
+		Query queryUsersByUserName = getEntityManager().createNamedQuery("findAllUsersByUserName");
+		queryUsersByUserName.setParameter("userName", username);
+		try {
+			user =  (User) queryUsersByUserName.getSingleResult();
+		} catch(NoResultException nre) {
+			logger.error("No user exists for username :: "+ username);
+		}
+		return user;
+	}
+
+	@Override
+	public User updateUser(final String username, final UserSecurityQuestion userSecurityQuestion,
+			final String answer) throws UserNotExistException {
+		User user  = findByName(username);
+		String salt = user.getSalt();
+		user.setUserSecurityQuestion(userSecurityQuestion);
+		user.setSecurityAnswer(SecurityUtil.encrypt(answer, salt));		
+		update(user);
+		return user;
+	}
+	
+
+	@Override
+	public String resetPassword(final User user, final String answer) throws UserNotExistException {
+		String generatedPassword = AuthenticationUtil.generateRandomPassword();
+		String salt = SecurityUtil.generateSalt(generatedPassword);
+		user.setSalt(salt);
+		user.setPassword(SecurityUtil.encrypt(generatedPassword, salt));
+		user.setSecurityAnswer(SecurityUtil.encrypt(answer, salt));	
+		update(user);
+		return generatedPassword;
+	}
+
+	@Override
+	public boolean deleteUsers(User[] users) {
+		EntityTransaction transaction = EntityManagerUtil.getEntityManager().getTransaction();
+		transaction.begin();
+		for (User user : users) {
+            if(user.getId() == 1){
+                continue;
+            }
+    		getEntityManager().remove(user);
+        }
+		transaction.commit();
+		return true;
+	}	
+	
+	public static class Factory {
+		 
+        private final static UserDAOImpl INSTANCE = new UserDAOImpl();
+ 
+        public static UserDAOImpl getInstance() {
+            return INSTANCE;
+        }
+    }
+}

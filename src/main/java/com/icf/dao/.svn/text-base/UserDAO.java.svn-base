@@ -1,0 +1,131 @@
+package com.icf.dao;
+
+import java.util.List;
+
+import com.icf.exception.AuthenticationException;
+import com.icf.exception.UserAlreadyExistException;
+import com.icf.exception.UserNotExistException;
+import com.icf.model.User;
+import com.icf.model.UserAccountStatus;
+import com.icf.model.UserSecurityQuestion;
+
+/**
+ * DAO to handle the operations related to user.
+ */
+public interface UserDAO {
+	
+	/**
+     * Create user account.
+     * 
+     * @param user of type user object.
+     * 
+     * @return user object.
+     */
+	public User createUser(User user) throws UserAlreadyExistException;
+	
+	/**
+     * Find all the users.
+     * 
+     * @return user list.
+     */
+	public List<User> findAll();
+	
+	/**
+     * update user account.
+     * 
+     * @param user of type user object.
+     * 
+     * @return user object.
+     */
+	public User update(User user) throws UserNotExistException;
+	
+	/**
+     * Find user by user id.
+     * 
+     * @param id of type integer.
+     * @return user object.
+     */
+	public User findById(int id);
+	
+	/**
+     * Get all the security question.
+     * 
+     * @return list of security question.
+     */
+	public List<UserSecurityQuestion> getSecurityQuestions();
+	
+	/**
+     * Get all the users.
+     * 
+     * @return list of all users.
+     */
+	public List<User> getUsers();
+	
+	/**
+     * Get all the account status.
+     * 
+     * @return list of account status.
+     */
+	public List<UserAccountStatus> getAccountStatus(String byName);
+	
+	/**
+     * Service used to validate the memorable answer at the time for forgot password.
+     * 
+     * @param userName type of string.
+     * @param answer type of string.
+     * @param userSecurityQuestion type of object.
+     * 
+     * @return false if answer is wrong.
+     */	
+	public User validateMemorableAnswer(String userName,String answer, UserSecurityQuestion userSecurityQuestion) 
+			throws AuthenticationException, UserNotExistException;
+	
+	/**
+     * Service used to authenticate the user at the time of login.
+     * 
+     * @param userName type of string.
+     * @param password type of string.
+     * 
+     * @return user object.
+     */	
+	public User authenticate(String username, String password) throws AuthenticationException;
+	
+	/**
+     * Find user by user name.
+     * 
+     * @param userName type of string.
+     * 
+     * @return user object.
+     */	
+	public User findByName(String username);
+	
+	/**
+     * Update user details.
+     * 
+     * @param userName type of string.
+     * @param userSecurityQuestion type of object.
+     * @param answer type of string.
+     *  
+     * @return user object.
+     */	
+	public User updateUser(String username,UserSecurityQuestion userSecurityQuestion,String answer) throws UserNotExistException ;
+	
+	/**
+     * Method to reset the user password.
+     * 
+     * @param user of type user object.
+     * 
+     * @return newly generated password.
+	 * @throws UserNotExistException 
+     */
+	public String resetPassword(final User user, final String answer) throws UserNotExistException;
+	
+	
+    /** Method to delete the users.
+     * 
+     * @param List of users.
+     * 
+     * @return true if deleted successfully.
+     */
+	public boolean deleteUsers(User[] users);
+}

@@ -1,0 +1,79 @@
+package com.icf.exception;
+
+import java.util.Iterator;
+import java.util.Map;
+
+import javax.faces.FacesException;
+import javax.faces.application.NavigationHandler;
+import javax.faces.context.ExceptionHandler;
+import javax.faces.context.ExceptionHandlerWrapper;
+import javax.faces.context.FacesContext;
+import javax.faces.event.ExceptionQueuedEvent;
+import javax.faces.event.ExceptionQueuedEventContext;
+
+import org.apache.log4j.Logger;
+
+/**
+ * Implementation is based on following URL
+ * http://ovaraksin.blogspot.in/2010/10/global-handling-of-all-unchecked.html
+ *
+ */
+public class DefaultExceptionHandler extends ExceptionHandlerWrapper {
+
+	private static final Logger LOGGER = Logger
+			.getLogger(DefaultExceptionHandler.class);
+
+	private ExceptionHandler exceptionHandler;
+
+	public DefaultExceptionHandler(ExceptionHandler exceptionHandler) {
+		this.exceptionHandler = exceptionHandler;
+	}
+
+	@Override
+	public ExceptionHandler getWrapped() {
+		return this.exceptionHandler;
+	}
+
+	@Override
+	public void handle() throws FacesException {
+		
+		for (Iterator<ExceptionQueuedEvent> i = getUnhandledExceptionQueuedEvents()
+				.iterator(); i.hasNext();) {
+
+			ExceptionQueuedEvent exceptionQueuedEvent = i.next();
+
+			ExceptionQueuedEventContext context = (ExceptionQueuedEventContext) exceptionQueuedEvent
+					.getSource();
+			FacesContext fc = FacesContext.getCurrentInstance();
+			Throwable throwable = context.getException();
+			try {
+								
+				if (throwable instanceof Throwable) {
+					if (LOGGER.isDebugEnabled()) {
+			            LOGGER.debug("DefaultExceptionHandler::Global Exception - START");
+			        }
+					Map<String, Object> requestMap = fc.getExternalContext().getRequestMap();
+					requestMap.put("currentView", throwable.getMessage());
+					NavigationHandler navigationHandler = fc.getApplication().getNavigationHandler();  
+					
+					if(throwable.getCause().getMessage().contains("JDBCConnectionException")){
+						fc.getExternalContext().getFlash().put("exceptioniNFO","Database Connection Closed");
+					} else{
+						fc.getExternalContext().getFlash().put("exceptioniNFO",throwable.getCause());  
+					}
+					LOGGER.error("DefaultExceptionHandler::handle method:: "+throwable.getMessage());
+                    navigationHandler.handleNavigation(fc,null, "/Error.xhtml?faces-redirect=true");  
+                    fc.renderResponse();  
+                    
+                    if (LOGGER.isDebugEnabled()) {
+			            LOGGER.debug("DefaultExceptionHandler::Global Exception - END");
+			        }
+				}	
+			} finally {
+				i.remove();
+			}
+
+		}
+	}
+
+}

@@ -1,0 +1,41 @@
+package com.icf.util;
+
+import org.apache.log4j.Logger;
+
+/**
+ * This class contains authentication related utility methods
+ *  
+ * @author samavish
+ *
+ */
+public class AuthenticationUtil {
+	
+	/** Logger for logging. */
+	private static final Logger LOGGER = Logger.getLogger(AuthenticationUtil.class);
+	
+	
+	/**
+	 * Generate random password.
+	 * 
+	 * @return random password string.
+	 */
+	public static String generateRandomPassword() {
+		if (LOGGER.isDebugEnabled()) {
+	           LOGGER.debug("AuthenticationUtil:: generateRandomPassword - START");
+	    }
+	    int noOfCAPSAlpha = 1;
+	    int noOfDigits = 1;
+	    int noOfSplChars = 1;
+	    int minLen = 8;
+	    int maxLen = 12;
+	    char[] pswd = RandomPasswordGeneratorUtil.generatePswd(minLen, maxLen,
+	    		noOfCAPSAlpha, noOfDigits, noOfSplChars);
+	    String password = new String(pswd);
+	    
+	    if (LOGGER.isDebugEnabled()) {
+	           LOGGER.debug("AuthenticationUtil:: generateRandomPassword - END");
+	    }
+	    return password;
+	}
+	
+}
