@@ -2,6 +2,7 @@
 <pmd>
     <useProjectRuleSet>false</useProjectRuleSet>
     <ruleSetFile>.ruleset</ruleSetFile>
+    
     <rules>
         <rule>
             <name>AvoidDecimalLiteralsInBigDecimalConstructor</name>
